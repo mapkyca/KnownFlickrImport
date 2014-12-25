@@ -1,0 +1,1 @@
+<li <?php if ($_SERVER['REQUEST_URI'] == '/account/flickrimport/') echo 'class="active"'; ?>><a href="<?=\Idno\Core\site()->config()->getDisplayURL()?>account/flickrimport/">Flickr Import</a></li>
