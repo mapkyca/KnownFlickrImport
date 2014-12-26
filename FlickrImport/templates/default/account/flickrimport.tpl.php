@@ -37,13 +37,13 @@
 		    if (\IdnoPlugins\FlickrImport\Importer::isImporting()) {
 			?>
 			<p>
-			    <a href="/flickrimporter/import" class="btn btn-large">Importing, click to view progress...</a>
+			    <a href="/flickrimport/import" class="btn btn-large">Importing, click to view progress...</a>
 			</p>
 			<?php
 		    } else {
 			?>
 			<p>
-			    <a href="/flickrimporter/import" class="btn btn-large btn-success">Click to begin importing photos (this will take a while)...</a>
+			    <a href="/flickrimport/import" class="btn btn-large btn-success">Click to begin importing photos (this will take a while)...</a>
 			</p>
 
 			<?php
