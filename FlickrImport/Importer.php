@@ -88,6 +88,14 @@ namespace IdnoPlugins\FlickrImport {
 		\Idno\Core\site()->currentPage()->setInput('created', $photo['datetaken']);
 		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
 		
+		if (!$photo['ispublic']) {
+		    // Not a public photo
+		    $uuid = \Idno\Core\site()->session()->currentUserUUID();
+		    \Idno\Core\site()->currentPage()->setInput('access', $uuid);
+		    
+		    self::log("Not a public picture, setting access to " . \Idno\Core\site()->currentPage()->getInput('access'));    
+		}
+		
 		self::log("Adding raw flickr photo details to object (for later processing and error correction)...");
 		$photo_obj->flickr_photo = serialize($photo);
 		$photo_obj->flickr_photo_extra = serialize($details);
