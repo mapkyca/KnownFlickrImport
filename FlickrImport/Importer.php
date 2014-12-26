@@ -111,6 +111,10 @@ namespace IdnoPlugins\FlickrImport {
 		$photo_obj->flickr_photo = serialize($photo);
 		$photo_obj->flickr_photo_extra = serialize($details);
 		
+		// Save some "flickr" details
+		$photo_obj->flickr_page = $details['urls']['photopage'];
+		self::log("Saving flickr page for this entry: {$photo_obj->flickr_page}");
+		
 		if ($photo_obj->saveDataFromInput())
 		    self::log("New photo entry created at " . $photo_obj->getUrl());
 		
