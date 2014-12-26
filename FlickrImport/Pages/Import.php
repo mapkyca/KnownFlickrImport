@@ -12,6 +12,7 @@
 		if (\IdnoPlugins\FlickrImport\Importer::isImporting()) {
 
 		    // Display log file.
+		    header('Content-Type: text/plain');
 		    echo \IdnoPlugins\FlickrImport\Importer::getLog();
 
 		} else {
