@@ -94,7 +94,7 @@ namespace IdnoPlugins\FlickrImport {
 		    \Idno\Core\site()->currentPage()->setInput('access', $uuid);
 		    
 		    self::log("Not a public picture, setting access to " . \Idno\Core\site()->currentPage()->getInput('access'));    
-		}
+		} else self::log("Picture is public, using default ACL");
 		
 		self::log("Adding raw flickr photo details to object (for later processing and error correction)...");
 		$photo_obj->flickr_photo = serialize($photo);
@@ -109,6 +109,8 @@ namespace IdnoPlugins\FlickrImport {
 		self::log("Photo {$photo['id']} already seen (locked by $lockfile)");
 
 	    gc_collect_cycles();    // Clean memory
+	    
+	    self::log("Ok\n");
 	}
 
 	/**
