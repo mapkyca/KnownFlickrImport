@@ -33,6 +33,11 @@ In addition, you will also need:
 * The latest Known Flickr plugin (activated and configured)
 * The Photos plugin activated.
 
+Known issues
+------------
+
+* [ ] Flickr tags are space separated, except when words are delimited by quotes. This makes the regex complicated, so tags are not very well handled at the moment.
+
 
 See
 ---
