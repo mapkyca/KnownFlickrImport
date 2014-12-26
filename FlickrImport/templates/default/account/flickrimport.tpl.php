@@ -51,7 +51,7 @@
 			    ?>
 	    		<h2>Log of last import run...</h2>
 			<div class="log" style="height:400px; overflow: auto; font-family: courier; font-size:small;">
-				<?= $lastlog; ?>
+				<?= $this->autop($lastlog); ?>
 	    		</div>
 			    <?php
 			}
