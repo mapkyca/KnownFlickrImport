@@ -7,12 +7,21 @@
 
             function getContent()
             {
-            }
+		$this->gatekeeper();
+		
+		if (\IdnoPlugins\FlickrImport\Importer::isImporting()) {
 
-            function postContent() {
-               
-            }
+		    // Display log file.
+		    echo \IdnoPlugins\FlickrImport\Importer::getLog();
 
+		} else {
+
+		    // Do an import
+		    \IdnoPlugins\FlickrImport\Importer::import();
+
+		}
+            }
+	    
         }
 
     }
