@@ -43,12 +43,6 @@ namespace IdnoPlugins\FlickrImport {
 		    file_put_contents($datafile, $data);
 		    $data = null;
 
-		    // Retrieve extra photo details
-		    self::log("Retrieving details...");
-		    $details = $api->photosGetInfo($photo['id'], $photo['secret']);
-		    if (!$details)
-			throw new \Exception('Could not retrieve photo details');
-
 		    // Fudge $_FILE and other vars
 		    switch ($photo['originalformat'])
 		    {
@@ -74,7 +68,14 @@ namespace IdnoPlugins\FlickrImport {
 		} else {
 		    self::log("Editing existing photo entry.");
 		}
-			    
+		
+		// Retrieve extra photo details
+		self::log("Retrieving details...");
+		$details = $api->photosGetInfo($photo['id'], $photo['secret']);
+		if (!$details)
+		    throw new \Exception('Could not retrieve photo details');
+		
+		    
 		// Set input fields
 		\Idno\Core\site()->currentPage()->setInput('title', $photo['title']);
 		self::log("Setting title to " . \Idno\Core\site()->currentPage()->getInput('title'));
@@ -82,8 +83,18 @@ namespace IdnoPlugins\FlickrImport {
 		\Idno\Core\site()->currentPage()->setInput('body', isset($photo['description']) ? $photo['description'] : $details['description']); // Description doesn't seem to be being returned in normal search
 		self::log("Setting body to " . \Idno\Core\site()->currentPage()->getInput('body'));
 		
-		\Idno\Core\site()->currentPage()->setInput('tags', $photo['tags']);
-		self::log("Setting tags to " . \Idno\Core\site()->currentPage()->getInput('tags'));
+		// Turn tags into #tags
+		$tags = [];
+		if ($details['tags']) {
+		    foreach ($details['tags'] as $tag)
+		    {
+			$tags[] = '#' . trim(str_replace(' ', '', $tag['text']), '"#');
+		    }
+		}
+		//\Idno\Core\site()->currentPage()->setInput('tags', $tags);
+		//self::log("Setting tags to " . \Idno\Core\site()->currentPage()->getInput('tags'));
+		\Idno\Core\site()->currentPage()->setInput('body', \Idno\Core\site()->currentPage()->getInput('body') . "\n\n" . trim(implode(' ', $tags)));
+		self::log("Adding tags as hashtags: ". trim(implode(' ', $tags)));
 		
 		\Idno\Core\site()->currentPage()->setInput('created', $photo['datetaken']);
 		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
