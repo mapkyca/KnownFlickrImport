@@ -88,7 +88,7 @@ namespace IdnoPlugins\FlickrImport {
 		\Idno\Core\site()->currentPage()->setInput('created', $photo['datetaken']);
 		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
 		
-		self::log("Adding raw flickr photo details to object...");
+		self::log("Adding raw flickr photo details to object (for later processing and error correction)...");
 		$photo_obj->flickr_photo = serialize($photo);
 		$photo_obj->flickr_photo_extra = serialize($details);
 		
