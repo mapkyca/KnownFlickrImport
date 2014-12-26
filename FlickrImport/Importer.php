@@ -140,7 +140,7 @@ namespace IdnoPlugins\FlickrImport {
 		throw new \Exception("FlickImport: Could not get process ID");
 
 	    // Parent, save PID to file.
-	    self::log("PID is $pid");
+	    self::log("PID is $pid, creating pidfile " . self::__pidFilename() . ' (if something goes totally wrong, try deleting this file and rerunning the import!)');
 	    file_put_contents(self::__pidFilename(), $pid);
 
 	    // Disconnect process from viewer
