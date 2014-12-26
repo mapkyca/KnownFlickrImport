@@ -33,19 +33,30 @@
     		<p>
     		    You have connected your Flickr account successfully.
     		</p>
-		<?php
-		if (\IdnoPlugins\FlickrImport\Importer::isImporting()) {
+		    <?php
+		    if (\IdnoPlugins\FlickrImport\Importer::isImporting()) {
+			?>
+			<p>
+			    <a href="/flickrimporter/import" class="btn btn-large">Importing, click to view progress...</a>
+			</p>
+			<?php
+		    } else {
+			?>
+			<p>
+			    <a href="/flickrimporter/import" class="btn btn-large btn-success">Click to begin importing photos (this will take a while)...</a>
+			</p>
+
+			<?php
+			if ($lastlog = \IdnoPlugins\FlickrImport\Importer::getLog()) {
+			    ?>
+	    		<h2>Log of last import run...</h2>
+			<div class="log" style="height:400px; overflow: auto; font-family: courier; font-size:small;">
+				<?= $lastlog; ?>
+	    		</div>
+			    <?php
+			}
+		    }
 		    ?>
-		<p>
-    		    <a href="/flickrimporter/import" class="btn btn-large">Importing, click to view progress...</a>
-    		</p>
-		<?php
-		} else {
-		    ?>
-    		<p>
-    		    <a href="/flickrimporter/import" class="btn btn-large btn-success">Click to begin importing photos (this will take a while)...</a>
-    		</p>
-		<?php }?>
     	    </div>
     	</div>
 
