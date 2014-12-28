@@ -10,7 +10,7 @@ namespace IdnoPlugins\FlickrImport {
 	public static function isImporting() {
 	    return file_exists(self::__pidFilename());
 	}
-
+	
 	/**
 	 * Import a photo.
 	 * @param array $photo The photo details
@@ -96,7 +96,7 @@ namespace IdnoPlugins\FlickrImport {
 		\Idno\Core\site()->currentPage()->setInput('body', \Idno\Core\site()->currentPage()->getInput('body') . "\n\n" . trim(implode(' ', $tags)));
 		self::log("Adding tags as hashtags: ". trim(implode(' ', $tags)));
 		
-		\Idno\Core\site()->currentPage()->setInput('created', $photo['datetaken']);
+		\Idno\Core\site()->currentPage()->setInput('created', "{$photo['datetaken']} PST"); // Flickr times appear to be in PST
 		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
 		
 		if (!$photo['ispublic']) {
@@ -119,7 +119,6 @@ namespace IdnoPlugins\FlickrImport {
 		    self::log("New photo entry created at " . $photo_obj->getUrl());
 		
 		$photo_obj = null;
-		
 	    } else
 		self::log("Photo {$photo['id']} already seen (locked by $lockfile)");
 
