@@ -17,7 +17,7 @@ The import process runs in the background (since it can take a very long time), 
 
 In addition, the importer will remember state, so if your connection dies or you run out of API calls, you can rerun. 
 
-If an entry for a photo has already been saved, the importer will update that entry rather than creating a new one, meaning you can resync your account at any time.
+If an entry for a photo has already been saved, the importer will update that entry rather than creating a new one, meaning you can resync your account at any time (although obviously this could be time consuming).
 
 
 Installation
