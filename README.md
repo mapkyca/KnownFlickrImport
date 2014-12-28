@@ -36,7 +36,6 @@ In addition, you will also need:
 Known issues / TODO
 -------------------
 
-* [x] Flickr tags are space separated, except when words are delimited by quotes. This makes the regex complicated, so tags are not very well handled at the moment.
 * [ ] Preserve comments
 * [ ] Preserve collections/sets
 * [ ] Import videos
