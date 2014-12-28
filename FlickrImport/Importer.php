@@ -159,7 +159,7 @@ namespace IdnoPlugins\FlickrImport {
 
 	    gc_collect_cycles();    // Clean memory
 
-	    self::log("Ok\n"); die();
+	    self::log("Ok\n"); 
 	}
 	
 	/**
