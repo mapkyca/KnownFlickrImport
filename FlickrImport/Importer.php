@@ -10,6 +10,157 @@ namespace IdnoPlugins\FlickrImport {
 	public static function isImporting() {
 	    return file_exists(self::__pidFilename());
 	}
+
+	/**
+	 * Extend the flickr API to get the sizes of a photo
+	 * @param type $photoid
+	 */
+	protected static function __photoGetSizes($photo_id, $api) {
+
+	    $params = array();
+	    if ($api->token)
+		$params['auth_token'] = $api->token;
+	    $params['photo_id'] = $photo_id;
+	    if ($secret)
+		$params['secret'] = $secret;
+
+	    $xml = $api->callMethod('flickr.photos.getSizes', $params);
+	    if (!$xml) {
+		return FALSE;
+	    }
+
+	    foreach ($xml->sizes->attributes() as $k => $v) {
+		$ret[$k] = (string) $v;
+	    }
+	    $i = 0;
+	    foreach ($xml->sizes->size as $photo) {
+		foreach ($photo->attributes() as $k => $v) {
+		    $ret['sizes'][$i][$k] = (string) $v;
+		}
+
+		// Correcting array (don't ask)
+		$label = $ret['sizes'][$i]['label'];
+		$ret['sizes'][$label] = $ret['sizes'][$i];
+		unset($ret['sizes'][$i]);
+
+		$i++;
+	    }
+
+	    return $ret;
+	}
+
+	protected static function importVideo(array $photo, $api) {
+	    $lockfile = self::__workingDir() . $photo['id'] . '.lck';
+	    $datafile = self::__workingDir() . $photo['id'] . '.mp4';
+
+	    if (!file_exists($lockfile)) {
+
+		// Lock the file
+		file_put_contents($lockfile, $photo);
+		self::log("New Video {$photo['id']} ('{$photo['title']}'), processing...");
+
+		// See if we've saved this photo before
+		$photo_obj = \IdnoPlugins\Media\Media::getOneFromAll(array('flickr_id' => $photo['id']));
+		if (!$photo_obj) {
+		    self::log("Not processed this video before, creating new Media object");
+		    $photo_obj = new \IdnoPlugins\Media\Media();
+		    $photo_obj->flickr_id = $photo['id'];
+		    
+		    // Retrieve video file
+		    self::log("Retrieving video sizes...");
+		    $sizes = self::__photoGetSizes($photo['id'], $api);
+
+		    $source = $sizes['sizes']['HD MP4']['source'];
+		    if (!$source) {
+			$source = $sizes['sizes']['Site MP4']['source'];
+		    }
+		    if (!$source) {
+			$source = $sizes['sizes']['Mobile MP4']['source'];
+		    }
+
+		    if (!$source)
+			throw new \Exception("Could not find a source for the video download!");
+
+		    // Download source file
+		    self::log("Source for video found at $source, downloading...");
+		    $data = \Idno\Core\Webservice::file_get_contents($source); // TODO: use some cool download script to avoid sucking things into memory.
+		    if (!$data)
+			throw new \Exception('Could not download file...');
+		    file_put_contents($datafile, $data);
+		    $data = null;
+		    unset($data); // clean up
+
+		    gc_collect_cycles();
+
+		    $_FILES = [
+			'media' => [
+			    'tmp_name' => $datafile,
+			    'name' => "{$photo['id']}.mp4",
+			    'type' => 'video/mp4'
+			]
+		    ];
+		} else {
+		    self::log("Editing existing Media entry.");
+		}
+
+		// Retrieve extra photo details
+		self::log("Retrieving details...");
+		$details = $api->photosGetInfo($photo['id'], $photo['secret']);
+		if (!$details)
+		    throw new \Exception('Could not retrieve photo details');
+
+
+		// Set input fields
+		\Idno\Core\site()->currentPage()->setInput('title', $photo['title']);
+		self::log("Setting title to " . \Idno\Core\site()->currentPage()->getInput('title'));
+
+		\Idno\Core\site()->currentPage()->setInput('body', isset($photo['description']) ? $photo['description'] : $details['description']); // Description doesn't seem to be being returned in normal search
+		self::log("Setting body to " . \Idno\Core\site()->currentPage()->getInput('body'));
+
+		// Turn tags into #tags
+		$tags = [];
+		if ($details['tags']) {
+		    foreach ($details['tags'] as $tag) {
+			$tags[] = '#' . trim(str_replace(' ', '', $tag['text']), '"#');
+		    }
+		}
+		//\Idno\Core\site()->currentPage()->setInput('tags', $tags);
+		//self::log("Setting tags to " . \Idno\Core\site()->currentPage()->getInput('tags'));
+		\Idno\Core\site()->currentPage()->setInput('body', \Idno\Core\site()->currentPage()->getInput('body') . "\n\n" . trim(implode(' ', $tags)));
+		self::log("Adding tags as hashtags: " . trim(implode(' ', $tags)));
+
+		\Idno\Core\site()->currentPage()->setInput('created', "{$photo['datetaken']} PST"); // Flickr times appear to be in PST
+		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
+
+		if (!$photo['ispublic']) {
+		    // Not a public photo
+		    $uuid = \Idno\Core\site()->session()->currentUserUUID();
+		    \Idno\Core\site()->currentPage()->setInput('access', $uuid);
+
+		    self::log("Not a public picture, setting access to " . \Idno\Core\site()->currentPage()->getInput('access'));
+		} else
+		    self::log("Picture is public, using default ACL");
+
+		self::log("Adding raw flickr photo details to object (for later processing and error correction)...");
+		$photo_obj->flickr_photo = serialize($photo);
+		$photo_obj->flickr_photo_extra = serialize($details);
+		$photo_obj->flickr_video_sizes = serialize($sizes);
+
+		// Save some "flickr" details
+		$photo_obj->flickr_page = $details['urls']['photopage'];
+		self::log("Saving flickr page for this entry: {$photo_obj->flickr_page}");
+
+		if ($photo_obj->saveDataFromInput())
+		    self::log("New video entry created at " . $photo_obj->getUrl());
+
+		$photo_obj = null;
+	    } else
+		self::log("Video {$photo['id']} already seen (locked by $lockfile)");
+
+	    gc_collect_cycles();    // Clean memory
+
+	    self::log("Ok\n"); die();
+	}
 	
 	/**
 	 * Import a photo.
@@ -32,28 +183,28 @@ namespace IdnoPlugins\FlickrImport {
 		    self::log("Not processed this photo before, creating new Photo object");
 		    $photo_obj = new \IdnoPlugins\Photo\Photo();
 		    $photo_obj->flickr_id = $photo['id'];
-		
-		    
+
+
 		    // Retrieve photo
 		    self::log("Retrieving {$photo['url_o']}...");
 		    $data = \Idno\Core\Webservice::file_get_contents($photo['url_o']);
 
-		    if (!$data) throw new \Exception("Could not retrieve photo");
+		    if (!$data)
+			throw new \Exception("Could not retrieve photo");
 		    self::log("Retrieved " . strlen($data) . " bytes, saving it to $datafile");
 		    file_put_contents($datafile, $data);
 		    $data = null;
 
 		    // Fudge $_FILE and other vars
-		    switch ($photo['originalformat'])
-		    {
-			case 'png' : 
+		    switch ($photo['originalformat']) {
+			case 'png' :
 			    $mime = 'image/png';
 			    break;
-			case 'gif' : 
+			case 'gif' :
 			    $mime = 'image/gif';
 			    break;
 			case 'jpg':
-			default: 
+			default:
 			    $mime = 'image/jpeg';
 		    }
 		    self::log("MIME type set to $mime");
@@ -68,62 +219,69 @@ namespace IdnoPlugins\FlickrImport {
 		} else {
 		    self::log("Editing existing photo entry.");
 		}
-		
+
 		// Retrieve extra photo details
 		self::log("Retrieving details...");
 		$details = $api->photosGetInfo($photo['id'], $photo['secret']);
 		if (!$details)
 		    throw new \Exception('Could not retrieve photo details');
-		
-		    
+
+
 		// Set input fields
 		\Idno\Core\site()->currentPage()->setInput('title', $photo['title']);
 		self::log("Setting title to " . \Idno\Core\site()->currentPage()->getInput('title'));
-		
+
 		\Idno\Core\site()->currentPage()->setInput('body', isset($photo['description']) ? $photo['description'] : $details['description']); // Description doesn't seem to be being returned in normal search
 		self::log("Setting body to " . \Idno\Core\site()->currentPage()->getInput('body'));
-		
+
 		// Turn tags into #tags
 		$tags = [];
 		if ($details['tags']) {
-		    foreach ($details['tags'] as $tag)
-		    {
+		    foreach ($details['tags'] as $tag) {
 			$tags[] = '#' . trim(str_replace(' ', '', $tag['text']), '"#');
 		    }
 		}
 		//\Idno\Core\site()->currentPage()->setInput('tags', $tags);
 		//self::log("Setting tags to " . \Idno\Core\site()->currentPage()->getInput('tags'));
 		\Idno\Core\site()->currentPage()->setInput('body', \Idno\Core\site()->currentPage()->getInput('body') . "\n\n" . trim(implode(' ', $tags)));
-		self::log("Adding tags as hashtags: ". trim(implode(' ', $tags)));
-		
+		self::log("Adding tags as hashtags: " . trim(implode(' ', $tags)));
+
 		\Idno\Core\site()->currentPage()->setInput('created', "{$photo['datetaken']} PST"); // Flickr times appear to be in PST
 		self::log("Setting created time to " . \Idno\Core\site()->currentPage()->getInput('created'));
-		
+
 		if (!$photo['ispublic']) {
 		    // Not a public photo
 		    $uuid = \Idno\Core\site()->session()->currentUserUUID();
 		    \Idno\Core\site()->currentPage()->setInput('access', $uuid);
-		    
-		    self::log("Not a public picture, setting access to " . \Idno\Core\site()->currentPage()->getInput('access'));    
-		} else self::log("Picture is public, using default ACL");
-		
+
+		    self::log("Not a public picture, setting access to " . \Idno\Core\site()->currentPage()->getInput('access'));
+		} else
+		    self::log("Picture is public, using default ACL");
+
 		self::log("Adding raw flickr photo details to object (for later processing and error correction)...");
 		$photo_obj->flickr_photo = serialize($photo);
 		$photo_obj->flickr_photo_extra = serialize($details);
-		
+
 		// Save some "flickr" details
 		$photo_obj->flickr_page = $details['urls']['photopage'];
 		self::log("Saving flickr page for this entry: {$photo_obj->flickr_page}");
-		
+
+		// See if this is a video
+		if ($details['media'] == 'video') {
+		    self::log("Aha... this photo is actually a video...");
+
+		    self::importVideoData($photo, $photo_obj, $api);
+		}
+
 		if ($photo_obj->saveDataFromInput())
 		    self::log("New photo entry created at " . $photo_obj->getUrl());
-		
+
 		$photo_obj = null;
 	    } else
 		self::log("Photo {$photo['id']} already seen (locked by $lockfile)");
 
 	    gc_collect_cycles();    // Clean memory
-	    
+
 	    self::log("Ok\n");
 	}
 
@@ -196,11 +354,13 @@ namespace IdnoPlugins\FlickrImport {
 			    for ($n = 1; $n <= $pages; $n++) {
 
 				self::log("Processing page $n of $pages...");
-				if ($page = $api->photosSearch($nsid, '', '', '', '', '', '', '', '', 
-					'license, description, date_upload, date_taken, owner_name, icon_server, original_format, last_update, geo, tags, machine_tags, o_dims, views, media, path_alias, url_sq, url_t, url_s, url_q, url_m, url_n, url_z, url_c, url_l, url_o', $limit, $n)) {
-
+				if ($page = $api->photosSearch($nsid, '', '', '', '', '', '', '', '', 'license, description, date_upload, date_taken, owner_name, icon_server, original_format, last_update, geo, tags, machine_tags, o_dims, views, media, path_alias, url_sq, url_t, url_s, url_q, url_m, url_n, url_z, url_c, url_l, url_o', $limit, $n)) {
 				    foreach ($page['photos'] as $photo) {
-					self::importPhoto($photo, $api);
+
+					if ($photo['media'] == 'video')
+					    self::importVideo($photo, $api);
+					else
+					    self::importPhoto($photo, $api);
 				    }
 				}
 			    }
@@ -259,6 +419,9 @@ namespace IdnoPlugins\FlickrImport {
 
 	    if (!\Idno\Core\site()->plugins()->get('Photo'))
 		throw new \Exception("FlickrImport requires the Known Photo plugin, and this doesn't appear to be installed/activated.");
+	    
+	    if (!\Idno\Core\site()->plugins()->get('Media'))
+		throw new \Exception("FlickrImport requires the Known Media plugin to import videos, and this doesn't appear to be installed/activated.");
 	}
 
 	private static function __logFilename() {

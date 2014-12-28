@@ -8,6 +8,7 @@ flickr photo and save them into your Known install.
 
 The import process runs in the background (since it can take a very long time), will pull the original file data off of flickr's servers and save it as a new Photo entry, preserving:
 
+* Photos AND Videos
 * Photo title
 * Photo description
 * Tags
@@ -38,7 +39,6 @@ Known issues / TODO
 
 * [ ] Preserve comments
 * [ ] Preserve collections/sets
-* [ ] Import videos
 
 
 See
