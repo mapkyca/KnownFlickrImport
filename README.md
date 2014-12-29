@@ -40,6 +40,13 @@ Known issues / TODO
 * [ ] Preserve comments
 * [ ] Preserve collections/sets
 
+Troubleshooting
+---------------
+
+**No NSID**
+
+At time of writing you'll need to use my dev branch of the Flickr plugin (https://github.com/mapkyca/flickr/tree/extra-info) and reconnect your 
+account in order to get an NSID (you may also need to log out and in again).
 
 See
 ---
