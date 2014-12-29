@@ -48,6 +48,10 @@ Troubleshooting
 At time of writing you'll need to use my dev branch of the Flickr plugin (https://github.com/mapkyca/flickr/tree/extra-info) and reconnect your 
 account in order to get an NSID (you may also need to log out and in again).
 
+**Video entries are present, but no video is displayed**
+
+At time of writing there's a bug in base Known, you need to apply the following patch: https://github.com/idno/idno/pull/657
+
 See
 ---
  * Author: Marcus Povey <http://www.marcus-povey.co.uk> 
