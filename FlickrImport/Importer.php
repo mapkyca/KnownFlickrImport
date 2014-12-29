@@ -373,7 +373,7 @@ namespace IdnoPlugins\FlickrImport {
 			}
 			
 			// We got here without error, so lets send a success message
-			$mail = new Email();
+			$mail = new \Idno\Core\Email();
                         $mail->setHTMLBodyFromTemplate('account/flickrimport');
                         $mail->addTo(\Idno\Core\site()->session()->currentUser()->email);
                         $mail->setSubject("Your Flickr account has been imported!");
