@@ -294,7 +294,7 @@ namespace IdnoPlugins\FlickrImport {
 	public static function import() {
 
 	    $user = \Idno\Core\site()->session()->currentUser();
-
+	    
 	    // Make lock dir
 	    mkdir(self::__workingDir(), 0777, true);
 
@@ -365,6 +365,14 @@ namespace IdnoPlugins\FlickrImport {
 				}
 			    }
 			}
+			
+			// We got here without error, so lets send a success message
+			$mail = new Email();
+                        $mail->setHTMLBodyFromTemplate('account/flickrimport');
+                        $mail->addTo(\Idno\Core\site()->session()->currentUser()->email);
+                        $mail->setSubject("Your Flickr account has been imported!");
+                        $mail->send();
+			
 		    } else
 			throw new \Exception("Could not connect to Flickr, possibly your API keys have expired.");
 		} else
