@@ -363,10 +363,10 @@ namespace IdnoPlugins\FlickrImport {
 					    self::importVideo($photo, $api);
 					else
 					    self::importPhoto($photo, $api);
+					
+					$cnt++;
 				    }
 				}
-				
-				$cnt++;
 			    }
 			    
 			    self::log("Imported $cnt photos/videos from {$account}");
