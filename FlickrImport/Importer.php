@@ -338,7 +338,7 @@ namespace IdnoPlugins\FlickrImport {
 
 			    // Get NSID
 			    $nsid = $details['nsid'];
-			    if (!$nsid)
+			    if ((!isset($details['nsid'])) || (!$nsid))
 				throw new \Exception('Could not retrieve NSID for user account, try updating your Flickr plugin and reconnecting to flickr.');
 			    self::log("NSID is $nsid");
 
