@@ -329,8 +329,10 @@ namespace IdnoPlugins\FlickrImport {
 		    // Process photos
 		    self::log('Connecting to flickr...');
 		    if ($api = $flickr->connect()) {
-
+			
 			foreach (\Idno\Core\site()->session()->currentUser()->flickr as $account => $details) {
+			    
+			    $cnt = 0;
 
 			    self::log("Importing for connected account {$account}");
 
@@ -363,7 +365,11 @@ namespace IdnoPlugins\FlickrImport {
 					    self::importPhoto($photo, $api);
 				    }
 				}
+				
+				$cnt++;
 			    }
+			    
+			    self::log("Imported $cnt photos/videos from {$account}");
 			}
 			
 			// We got here without error, so lets send a success message
