@@ -49,6 +49,32 @@ namespace IdnoPlugins\FlickrImport {
 	    return $ret;
 	}
 
+	/**
+	 * Replace flickr API version with one that accepts parameters.
+	 * @param type $photoset_id
+	 * @param type $params
+	 * @param type $api
+	 * @return boolean
+	 */
+	protected static function __photosetsGetPhotos($photoset_id, $params = [], $api) {
+	    $params = array_merge(array('photoset_id' => $photoset_id), $params);
+	    $xml = $api->callMethod('flickr.photosets.getPhotos', $params);
+	    if (!$xml) {
+		return FALSE;
+	    }
+	    foreach ($xml->photoset->attributes() as $k => $v) {
+		$ret[$k] = (string) $v;
+	    }
+	    $i = 0;
+	    foreach ($xml->photoset->photo as $photo) {
+		foreach ($photo->attributes() as $k => $v) {
+		    $ret['photos'][(string) $photo['id']][$k] = (string) $v;
+		}
+		$i++;
+	    }
+	    return $ret;
+	}
+
 	protected static function importVideo(array $photo, $api) {
 	    $lockfile = self::__workingDir() . $photo['id'] . '.lck';
 	    $datafile = self::__workingDir() . $photo['id'] . '.mp4';
@@ -65,7 +91,7 @@ namespace IdnoPlugins\FlickrImport {
 		    self::log("Not processed this video before, creating new Media object");
 		    $photo_obj = new \IdnoPlugins\Media\Media();
 		    $photo_obj->flickr_id = $photo['id'];
-		    
+
 		    // Retrieve video file
 		    self::log("Retrieving video sizes...");
 		    $sizes = self::__photoGetSizes($photo['id'], $api);
@@ -159,9 +185,9 @@ namespace IdnoPlugins\FlickrImport {
 
 	    gc_collect_cycles();    // Clean memory
 
-	    self::log("Ok\n"); 
+	    self::log("Ok\n");
 	}
-	
+
 	/**
 	 * Import a photo.
 	 * @param array $photo The photo details
@@ -286,6 +312,74 @@ namespace IdnoPlugins\FlickrImport {
 	}
 
 	/**
+	 * Import a photoself
+	 * @param array $set
+	 * @param type $api
+	 */
+	protected static function importPhotoset(array $set, $api) {
+
+	    // Create new storage
+	    if ($photoset = \Idno\Entities\GenericDataItem::getByDatatype('Flickr/Photoset', ['photoset_id' => $set['id']])) {
+		self::log("Existing photoset {$set['id']} - '{$set['title']}', updating...");
+
+		$newset = $photoset[0];
+	    } else {
+		self::log("Importing new photoset {$set['id']} - '{$set['title']}'");
+		$newset = new \Idno\Entities\GenericDataItem();
+		$newset->setDatatype('Flickr/Photoset');
+	    }
+
+	    // Remap certain fields, as they clash
+	    $translate = [
+		'id' => 'photoset_id',
+		'primary' => 'primary_photo_id',
+	    ];
+
+	    foreach ($set as $key => $value) {
+
+		if (isset($translate[$key]))
+		    $key = $translate[$key];
+
+		$newset->$key = $value;
+
+		self::log("$key => $value");
+	    }
+
+	    // Now get a list of photos in this photoset
+	    if ($photos = self::__photosetsGetPhotos($set['id'], [], $api)) {
+
+		$photosInSet = [];
+
+		self::log("Photoset consists of {$photos['total']} photos in {$photos['pages']} of {$photos['per_page']} photos.");
+
+		$page = $photos['page'];
+		$pages = $photos['pages'];
+		$limit = $photos['per_page'];
+
+		do {
+
+		    // Add to set
+		    foreach ($photos['photos'] as $photo_id => $details) {
+			$photosInSet[] = "$photo_id"; // Add photo ID as string to avoid unexpected values
+			self::log("Added $photo_id to set");
+		    }
+
+		    $page++;
+		    if ($page <= $pages) {
+			self::log("Retrieving page $page of $pages");
+			$photos = self::__photosetsGetPhotos($set['id'], ['page' => $page], $api);
+		    }
+		} while ($page <= $pages);
+
+		$newset->photos = $photosInSet;
+	    } else
+		self::log("Photoset {$set['id']} appears to contain no photos!", LOGLEVEL_WARNING);
+
+	    self::log("Ok\n");
+	    return $newset->save();
+	}
+
+	/**
 	 * Do the import.
 	 * 
 	 * This function will check for credentials, and then execute an import. Import is done in the background using pcntl_fork.
@@ -294,8 +388,15 @@ namespace IdnoPlugins\FlickrImport {
 	public static function import() {
 
 	    $user = \Idno\Core\site()->session()->currentUser();
-	    
-	    // Make lock dir
+
+	    // Register a shutdown hook to do cleanup
+	    register_shutdown_function(function() {
+
+		// Unlock
+		unlink(self::__pidFilename());
+	    });
+
+	    // Make working dir
 	    mkdir(self::__workingDir(), 0777, true);
 
 	    // Tidy up from last run, start new log file
@@ -311,7 +412,7 @@ namespace IdnoPlugins\FlickrImport {
 	    if (!$pid)
 		throw new \Exception("FlickImport: Could not get process ID");
 
-	    // Parent, save PID to file.
+	    // Parent, save PID to file (this locks the process).
 	    self::log("PID is $pid, creating pidfile " . self::__pidFilename() . ' (if something goes totally wrong, try deleting this file and rerunning the import!)');
 	    file_put_contents(self::__pidFilename(), $pid);
 
@@ -329,19 +430,25 @@ namespace IdnoPlugins\FlickrImport {
 		    // Process photos
 		    self::log('Connecting to flickr...');
 		    if ($api = $flickr->connect()) {
-			
+
 			foreach (\Idno\Core\site()->session()->currentUser()->flickr as $account => $details) {
-			    
+
 			    $cnt = 0;
 
 			    self::log("Importing for connected account {$account}");
 
+			    /**
+			     * First things first, check we have a user ID attached to this account
+			     */
 			    // Get NSID
 			    $nsid = $details['nsid'];
 			    if ((!isset($details['nsid'])) || (!$nsid))
 				throw new \Exception('Could not retrieve NSID for user account, try updating your Flickr plugin and reconnecting to flickr.');
 			    self::log("NSID is $nsid");
 
+			    /**
+			     * Import the photos
+			     */
 			    // Get initial stats
 			    if (!$details = $api->photosSearch($nsid))
 				throw new \Exception("Could not retrieve details from flickr.");
@@ -363,22 +470,48 @@ namespace IdnoPlugins\FlickrImport {
 					    self::importVideo($photo, $api);
 					else
 					    self::importPhoto($photo, $api);
-					
+
 					$cnt++;
 				    }
 				}
 			    }
-			    
+
 			    self::log("Imported $cnt photos/videos from {$account}");
+
+
+			    /**
+			     * Now, import photosets (if we can)
+			     */
+			    if (class_exists('Idno\Entities\GenericDataItem')) {
+				self::log("Storing photosets as GenericDataItem. Photosets currently have no direct mapping in Known, so we're just storing the data so your themes can make sense of it.");
+
+				if ($photosets = $api->photosetsGetList($nsid)) {
+				    self::log("Importing {$photosets['total']} photosets...");
+
+				    foreach ($photosets['photosets'] as $setid => $set) {
+					self::importPhotoset($set, $api);
+				    }
+				} else
+				    self::log("No photosets could be retrieved");
+			    } else
+				self::log("GenericDataItem class doesn't exist on your version of Known, so your photosets can't be imported. Update Known and try again!", LOGLEVEL_WARNING);
+
+
+			    /**
+			     * Now, import collections (if we can)
+			     */
+			    if (class_exists('Idno\Entities\GenericDataItem')) {
+				self::log("Storing photosets as GenericDataItem. Collections currently have no direct mapping in Known, so we're just storing the data so your themes can make sense of it.");
+			    } else
+				self::log("GenericDataItem class doesn't exist on your version of Known, so your collections can't be imported. Update Known and try again!", LOGLEVEL_WARNING);
 			}
-			
+
 			// We got here without error, so lets send a success message
 			$mail = new \Idno\Core\Email();
-                        $mail->setHTMLBodyFromTemplate('account/flickrimport');
-                        $mail->addTo(\Idno\Core\site()->session()->currentUser()->email);
-                        $mail->setSubject("Your Flickr account has been imported!");
-                        $mail->send();
-			
+			$mail->setHTMLBodyFromTemplate('account/flickrimport');
+			$mail->addTo(\Idno\Core\site()->session()->currentUser()->email);
+			$mail->setSubject("Your Flickr account has been imported!");
+			$mail->send();
 		    } else
 			throw new \Exception("Could not connect to Flickr, possibly your API keys have expired.");
 		} else
@@ -387,8 +520,6 @@ namespace IdnoPlugins\FlickrImport {
 		self::log($e->getMessage(), LOGLEVEL_ERROR);
 	    }
 
-	    // Unlock
-	    unlink(self::__pidFilename());
 	    exit;
 	}
 
@@ -433,7 +564,7 @@ namespace IdnoPlugins\FlickrImport {
 
 	    if (!\Idno\Core\site()->plugins()->get('Photo'))
 		throw new \Exception("FlickrImport requires the Known Photo plugin, and this doesn't appear to be installed/activated.");
-	    
+
 	    if (!\Idno\Core\site()->plugins()->get('Media'))
 		throw new \Exception("FlickrImport requires the Known Media plugin to import videos, and this doesn't appear to be installed/activated.");
 	}
