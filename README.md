@@ -38,7 +38,7 @@ Known issues / TODO
 -------------------
 
 * [ ] Preserve comments
-* [ ] Preserve collections/sets
+* [x] Preserve collections/sets - as a GenericDataItem object which makes the data available to your theme/plugins, there's no default Known rendering since Known has now sensible 1:1 mapping for these data structures.
 * [ ] Option to filter out images with thisdomain origin - My usecase was I wanted to import an entire flickr archive to a domain of its own, however if you've been posting from a domain to flickr but now want to pull *back* into that domain, you'll currently get duplicates.
 
 Troubleshooting
