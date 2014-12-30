@@ -74,6 +74,38 @@ namespace IdnoPlugins\FlickrImport {
 	    }
 	    return $ret;
 	}
+	
+	/**
+	 * Retrieve a user's collections.
+	 * @param type $nsid
+	 * @param type $params
+	 * @param type $api
+	 */
+	protected static function __collectionsGetTree($nsid, $params= [], $api) {
+	    $params = array_merge(array('user_id' => $nsid), $params);
+	    $xml = $api->callMethod('flickr.collections.getTree', $params);
+	    if (!$xml) {
+		return FALSE;
+	    }
+	    foreach ($xml->collections->attributes() as $k => $v) {
+		$ret[$k] = (string) $v;
+	    }
+	    $i = 0;
+	    foreach ($xml->collections->collection as $collection) {
+		foreach ($collection->attributes() as $k => $v) {
+		    $ret['collections'][(string) $collection['id']][$k] = (string) $v;
+		}
+		
+		$ret['collections'][(string) $collection['id']]['sets'] = [];
+		foreach ($collection->set as $set) {
+		    $ret['collections'][(string) $collection['id']]['sets'][] = (string)$set['id'];
+		}
+		
+		$i++;
+		
+	    }
+	    return $ret;
+	}
 
 	protected static function importVideo(array $photo, $api) {
 	    $lockfile = self::__workingDir() . $photo['id'] . '.lck';
@@ -312,7 +344,7 @@ namespace IdnoPlugins\FlickrImport {
 	}
 
 	/**
-	 * Import a photoself
+	 * Import a photoset
 	 * @param array $set
 	 * @param type $api
 	 */
@@ -379,6 +411,43 @@ namespace IdnoPlugins\FlickrImport {
 	    return $newset->save();
 	}
 
+	/**
+	 * Import a collection
+	 * @param array $collection
+	 * @param type $api
+	 */
+	protected static function importCollection(array $collection, $api) {
+
+	    // Create new storage
+	    if ($collection_set = \Idno\Entities\GenericDataItem::getByDatatype('Flickr/Collection', ['collection_id' => $collection['id']])) {
+		self::log("Existing collection {$collection['id']} - '{$collection['title']}', updating...");
+
+		$newcollection = $collection_set[0];
+	    } else {
+		self::log("Importing new collection {$collection['id']} - '{$collection['title']}'");
+		$newcollection = new \Idno\Entities\GenericDataItem();
+		$newcollection->setDatatype('Flickr/Collection');
+	    }
+
+	    // Remap certain fields, as they clash
+	    $translate = [
+		'id' => 'collection_id',
+	    ];
+
+	    foreach ($collection as $key => $value) {
+
+		if (isset($translate[$key]))
+		    $key = $translate[$key];
+
+		$newcollection->$key = $value;
+
+		self::log("$key => " . var_export($value, true));
+	    }
+	    
+	    self::log("Ok\n");
+	    return $newcollection->save();
+	}
+	
 	/**
 	 * Do the import.
 	 * 
@@ -498,10 +567,20 @@ namespace IdnoPlugins\FlickrImport {
 
 
 			    /**
-			     * Now, import collections (if we can)
+			     * Now, import collections (if we can) - Currently only the top level of the tree is imported.
 			     */
 			    if (class_exists('Idno\Entities\GenericDataItem')) {
-				self::log("Storing photosets as GenericDataItem. Collections currently have no direct mapping in Known, so we're just storing the data so your themes can make sense of it.");
+				self::log("Storing Collections as GenericDataItem. Collections currently have no direct mapping in Known, so we're just storing the data so your themes can make sense of it.");
+				
+				if ($collection = self::__collectionsGetTree($nsid, [], $api)) {
+				    self::log("Importing collections...");
+
+				    foreach ($collection['collections'] as $id => $collection) {
+					self::importCollection($collection, $api);
+				    }
+				} else
+				    self::log("No photosets could be retrieved");
+				
 			    } else
 				self::log("GenericDataItem class doesn't exist on your version of Known, so your collections can't be imported. Update Known and try again!", LOGLEVEL_WARNING);
 			}
