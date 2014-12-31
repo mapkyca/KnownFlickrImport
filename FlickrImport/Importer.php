@@ -382,7 +382,7 @@ namespace IdnoPlugins\FlickrImport {
 
 		$photosInSet = [];
 
-		self::log("Photoset consists of {$photos['total']} photos in {$photos['pages']} of {$photos['per_page']} photos.");
+		self::log("Photoset consists of {$photos['total']} photos in {$photos['pages']} pages of max {$photos['per_page']} photos.");
 
 		$page = $photos['page'];
 		$pages = $photos['pages'];
