@@ -393,6 +393,13 @@ namespace IdnoPlugins\FlickrImport {
 		    // Add to set
 		    foreach ($photos['photos'] as $photo_id => $details) {
 			$photosInSet[] = "$photo_id"; // Add photo ID as string to avoid unexpected values
+			
+			// Catch rare instances when primary photo isn't set
+			if (!$newset->primary_photo_id) {
+			    self::log("Primary photo doesn't appear to have been set, using $photo_id");
+			    $newset->primary_photo_id = "$photo_id";
+			}
+			
 			self::log("Added $photo_id to set");
 		    }
 
