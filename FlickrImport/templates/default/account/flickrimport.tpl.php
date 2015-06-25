@@ -1,13 +1,13 @@
 
 <div class="row">
 
-    <div class="span10 offset1">
+    <div class="col-md-10 col-md-offset-1">
         <h1>Flickr Import</h1>
 	<?= $this->draw('account/menu') ?>
     </div>
 </div>
 <div class="row">
-    <div class="span10 offset1" style="margin-top: 4em">
+    <div class="col-md-10 col-md-offset-1" style="margin-top: 4em">
 
 	<p>This tool provides a way for you to import your photos from your linked Flickr account.</p>
 
