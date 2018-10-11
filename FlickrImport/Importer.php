@@ -672,7 +672,7 @@ namespace IdnoPlugins\FlickrImport {
 
 	private static function __workingDir() {
 	    $user = \Idno\Core\site()->session()->currentUserUUID();
-	    return rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'FlickrImport_' . md5($user) . DIRECTORY_SEPARATOR;
+	    return rtrim(\Idno\Core\Idno::site()->config()->getUploadPath(), '/\\') . DIRECTORY_SEPARATOR . 'FlickrImport_' . md5($user) . DIRECTORY_SEPARATOR;
 	}
 
 	private static function __disconnectSession() {
