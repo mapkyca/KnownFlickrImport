@@ -1,3 +1,6 @@
+** This plugin is DEPRECATED - use [KnownFlickrDumpImport](https://github.com/mapkyca/KnownFlickrDumpImport) instead **
+
+
 Flickr Photo import for Known (beta)
 ====================================
 
